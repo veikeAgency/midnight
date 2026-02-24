@@ -5,10 +5,17 @@ use crate::state::AppState;
 
 #[derive(Serialize)]
 pub struct HealthResponse {
-    success: bool,
-    status: &'static str,
-    service: &'static str,
-    environment: String,
+    pub success: bool,
+    pub status: &'static str,
+    pub service: &'static str,
+    pub environment: String,
+}
+
+#[derive(Serialize)]
+pub struct ReadyResponse {
+    pub success: bool,
+    pub db: &'static str,
+    pub redis: &'static str,
 }
 
 pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -16,14 +23,8 @@ pub async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
         success: true,
         status: "ok",
         service: "midnight",
-        environment: state.config.app_env.clone(),
+        environment: state.config.app_env,
     })
-}
-
-#[derive(Serialize)]
-pub struct ReadyResponse {
-    success: bool,
-    db: &'static str,
 }
 
 pub async fn ready(State(state): State<AppState>) -> Json<ReadyResponse> {
@@ -32,8 +33,11 @@ pub async fn ready(State(state): State<AppState>) -> Json<ReadyResponse> {
         .await
         .is_ok();
 
+    let redis_ok = state.redis.get().await.is_ok();
+
     Json(ReadyResponse {
-        success: db_ok,
+        success: db_ok && redis_ok,
         db: if db_ok { "ok" } else { "error" },
+        redis: if redis_ok { "ok" } else { "error" },
     })
 }
