@@ -15,18 +15,18 @@ async fn main() {
 }
 
 async fn home() -> impl IntoResponse {
-    let _ = Json(json!({
+    Json(json!({
         "message": "Welcome to Midnight"
-    }));
+    }))
 }
 
 
 async fn health_ping() -> impl IntoResponse {
-    let _ = Json(json!({
+    Json(json!({
         "status": "ok",
         "server": "midnight",
         "version": "0.0.1"
-    }));
+    }))
 }
 
 async fn ax_serve(listener: TcpListener, app: Router) -> std::io::Result<()>{
