@@ -13,17 +13,22 @@ mod utils;
 
 use std::net::SocketAddr;
 
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::EnvFilter;
 
 use crate::{config::AppConfig, state::AppState};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<()> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run())
+}
+
+async fn run() -> anyhow::Result<()> {
     let config = AppConfig::from_env();
 
-    tracing_subscriber::registry()
-        .with(EnvFilter::new(config.log_level.clone()))
-        .with(tracing_subscriber::fmt::layer())
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(config.log_level.clone()))
         .init();
 
     let db = db::pool::connect(&config.database_url).await?;
@@ -38,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
     let app = app::build_router(state);
 
     let addr: SocketAddr = config.addr().parse()?;
-    tracing::info!("midnight listening on http://{}", addr);
+    println!("midnight listening on http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
