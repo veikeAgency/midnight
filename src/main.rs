@@ -1,34 +1,47 @@
-use axum::{Router, routing::get, Json, response::IntoResponse};
-use serde_json::{json};
-use tokio::net::TcpListener;
+mod app;
+mod config;
+mod state;
+mod routes;
+mod handlers;
+mod middleware;
+mod models;
+mod services;
+mod providers;
+mod workers;
+mod db;
+mod utils;
+
+use std::net::SocketAddr;
+
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+use crate::{config::AppConfig, state::AppState};
 
 #[tokio::main]
-async fn main() {
-    let app = Router::new()
-        .route("/", get(home))
-        .route("/health", get(health_ping));
+async fn main() -> anyhow::Result<()> {
+    let config = AppConfig::from_env();
 
-    let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
-    println!("API Listening on http://localhost:3000");
+    tracing_subscriber::registry()
+        .with(EnvFilter::new(config.log_level.clone()))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
 
-    ax_serve(listener, app).await.unwrap();
-}
+    let db = db::pool::connect(&config.database_url).await?;
+    let redis = db::pool::redis_pool(&config.redis_url)?;
 
-async fn home() -> impl IntoResponse {
-    Json(json!({
-        "message": "Welcome to Midnight"
-    }))
-}
+    let state = AppState {
+        config: config.clone(),
+        db,
+        redis,
+    };
 
+    let app = app::build_router(state);
 
-async fn health_ping() -> impl IntoResponse {
-    Json(json!({
-        "status": "ok",
-        "server": "midnight",
-        "version": "0.0.1"
-    }))
-}
+    let addr: SocketAddr = config.addr().parse()?;
+    tracing::info!("midnight listening on http://{}", addr);
 
-async fn ax_serve(listener: TcpListener, app: Router) -> std::io::Result<()>{
-    axum::serve(listener, app).await
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
