@@ -12,6 +12,10 @@ pub enum AppError {
     Internal,
     #[error("bad request: {0}")]
     BadRequest(String),
+    #[error("not found")]
+    NotFound,
+    #[error("unauthorized")]
+    Unauthorized,
 }
 
 #[derive(Serialize)]
@@ -25,6 +29,8 @@ impl IntoResponse for AppError {
         let status = match &self {
             AppError::Internal => StatusCode::INTERNAL_SERVER_ERROR,
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
         };
 
         let body = ErrorBody {
