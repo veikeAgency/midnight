@@ -1,1 +1,6 @@
 /target
+.env.local
+.env.development
+.env
+.env.production
+.env.test
